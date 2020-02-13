@@ -2,8 +2,8 @@ from publicfunction import *
 import matplotlib.pyplot as plt
 
 class Performance:
-    def __init__(self, matchrec):
-        self.matchrec = matchrec
+    def __init__(self, matchrecs):
+        self.matchrecs = matchrecs
         self.calcresult = {}
 
     def calcperformence(self, dates):
@@ -12,37 +12,41 @@ class Performance:
         calprofitlist = []
         yieldratelist = []
         calyieldratelist = []
-        profit = 0.000  # 分笔收益（点数）
+        maxfpratelist = []  # 最大浮盈比例列表
+        maxflratelist = []  # 最大浮亏比例列表
         calprofit = 0.000  # 累计收益
-        yieldrate = 0.00  # 分笔收益率
         calyieldrate = 0.00  # 累计收益率
         wintimes = 0  # 盈利次数
-        for rec in self.matchrec:
+        for rec in self.matchrecs:
             profit = (rec['closeprice'] - rec['openprice']) * rec['direction']
             calprofit += profit
             yieldrate = profit / rec['openprice']
             calyieldrate = (1+calyieldrate) * (1+yieldrate) - 1
+            maxfprate = rec['maxprofit'] / rec['openprice']
+            maxflrate = rec['maxloss'] / rec['openprice']
             if profit > 0:
                 wintimes += 1  # 盈利次数+1
             profitlist.append(profit)
             calprofitlist.append(calprofit)
             yieldratelist.append(yieldrate)
             calyieldratelist.append(calyieldrate)
-
-
+            maxfpratelist.append(maxfprate)
+            maxflratelist.append(maxflrate)
         #  合并项目
-        self.matchrec = mergedictlist_list(self.matchrec, profitlist, 'profit')
-        self.matchrec = mergedictlist_list(self.matchrec, calprofitlist, 'calprofit')
-        self.matchrec = mergedictlist_list(self.matchrec, yieldratelist, 'yieldrate')
-        self.matchrec = mergedictlist_list(self.matchrec, calyieldratelist, 'calyieldrate')
+        self.matchrecs = mergedictlist_list(self.matchrecs, profitlist, 'profit')
+        self.matchrecs = mergedictlist_list(self.matchrecs, calprofitlist, 'calprofit')
+        self.matchrecs = mergedictlist_list(self.matchrecs, yieldratelist, 'yieldrate')
+        self.matchrecs = mergedictlist_list(self.matchrecs, calyieldratelist, 'calyieldrate')
+        self.matchrecs = mergedictlist_list(self.matchrecs, maxfpratelist, 'maxfprate')
+        self.matchrecs = mergedictlist_list(self.matchrecs, maxflratelist, 'maxflrate')
 
         # 计算交易次数
-        matchcount = len(self.matchrec)
+        matchcount = len(self.matchrecs)
         # 计算胜率
         winrate = wintimes / matchcount
 
         # 计算最大回撤
-        maxdd = self.drawdown(self.matchrec)
+        maxdd = self.drawdown(self.matchrecs)
 
         # 计算年化收益率
         yielrate_peryear = (1+calyieldrate) ** (1/(dates/240)) - 1
@@ -71,12 +75,12 @@ class Performance:
     """
     计算回撤
     """
-    def drawdown(self, matchrec):
+    def drawdown(self, matchrecs):
         maxdrawdown = 0
         maxvalue = 0
-        for i in range(len(matchrec)):
-            maxvalue = max(maxvalue, matchrec[i]['calyieldrate'])
-            maxdrawdown = min(maxdrawdown, (matchrec[i]['calyieldrate']-maxvalue)/(1+maxvalue))
+        for i in range(len(matchrecs)):
+            maxvalue = max(maxvalue, matchrecs[i]['calyieldrate'])
+            maxdrawdown = min(maxdrawdown, (matchrecs[i]['calyieldrate']-maxvalue)/(1+maxvalue))
 
         return maxdrawdown
 
@@ -85,7 +89,7 @@ class Performance:
     """
     def export_matchrecord(self):
         # 交易记录数据到excel
-        if export_to_excel(self.matchrec):
+        if export_to_excel(self.matchrecs):
             print("已成功导出到excel")
         else:
             print('导入excel失败！')

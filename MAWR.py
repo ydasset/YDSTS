@@ -47,7 +47,7 @@ class MAWR:
 
         self.forcestop = False  # 是否强制止损
         self.movestop = False  # 是否移动止损（跟踪止损）
-        self.stoprate = 0.5  # 止损百分比，修改为0时，不止损
+        self.stoprate = 1  # 止损百分比，修改为0时，不止损
         self.ATRmults = 0.5  # ATR倍数
 
         self.allowshort = True  # 允许做空
@@ -130,36 +130,6 @@ class MAWR:
                     if self.obj_PM.get_currdirect() != 0:  # 如果不是空仓
                         self.obj_PM.closeposition(O)  # 以开盘价平仓（注意前面是大写字母O，不是0）
                     continue
-
-
-
-            # # 强制止损
-            # if self.allowcloseinday or self.obj_PM.get_curropendate() != date:  # 当日允许平仓（T+0）
-            #     if self.obj_PM.get_currdirect() == 1:
-            #         if not self.forcestop:  # 不止损时，出仓信号等于反向信号
-            #             stopprice = stopprice
-            #         else:
-            #             stopprice = max(stopprice, stopprice)
-            #         if O < stopprice:  # 开盘如果直接低于止损价，则直接平仓
-            #             stopprice = O
-            #
-            #         if (L <= stopprice) and (H >= stopprice):  # 平仓
-            #             self.obj_PM.closeposition(stopprice)
-            #     elif self.obj_PM.get_currdirect() == -1:
-            #         if not self.forcestop:  # 不止损时，出仓信号等于HBOND
-            #             stopprice = stopprice
-            #         else:
-            #             stopprice = min(stopprice, stopprice)
-            #         if O > stopprice:  # 开盘如果直接高于止损价，则直接平仓
-            #             stopprice = O
-            #
-            #         if (H >= stopprice) and (L <= stopprice):  # 平仓
-            #             self.obj_PM.closeposition(stopprice)
-            # if self.isdaytrade \
-            #         and ((time < self.open_btime1 or time >= self.open_etime1
-            #              or time < self.open_btime2 or time >= self.open_etime2)
-            #              or (tradetimes >= self.maxtimesinday)):
-            #     continue
             # 指标平仓
             # 多头平仓（条件和开空一样）
             if self.obj_PM.get_currdirect() == 1 \
@@ -171,6 +141,22 @@ class MAWR:
                     and mashort1 > malong1 \
                     and wrval2 > self.oversold > wrval1:
                 self.obj_PM.closeposition(O)
+            # 强制止损
+            if self.forcestop and (self.allowcloseinday or self.obj_PM.get_curropendate() != date):  # 当日允许平仓（T+0）
+                if self.obj_PM.get_currdirect() == 1:
+                    if O <= stopprice:  # 开盘如果直接低于止损价，则直接平仓
+                        self.obj_PM.closeposition(O)
+                        continue
+                    elif (L <= stopprice) and (H >= stopprice):  # 平仓
+                        self.obj_PM.closeposition(stopprice)
+                        continue
+                elif self.obj_PM.get_currdirect() == -1:
+                    if O >= stopprice:  # 开盘如果直接高于止损价，则直接平仓
+                        self.obj_PM.closeposition(O)
+                        continue
+                    if (H >= stopprice):  # 平仓
+                        self.obj_PM.closeposition(stopprice)
+                        continue
 
             # 开仓
             # 开盘和收盘附近15分钟不开仓，当日交易次数超限也不开仓
@@ -211,11 +197,12 @@ class MAWR:
                     stopprice = self.obj_PM.get_stopprice()  # 刷新止损价
                     if self.obj_PM.get_currdirect() == 1:
                         self.obj_PM.set_stopprice(max(self.obj_PM.get_costprice(), H * (1 - self.stoprate / 100),
-                                                      stopprice))  # 原止损价，高点算出的止损价格，lbond三者最高
+                                                      stopprice))  # 原止损价，高点算出的止损价格，二者最高
                     elif self.obj_PM.get_currdirect() == -1:
                         self.obj_PM.set_stopprice(min(self.obj_PM.get_costprice(), L * (1 + self.stoprate / 100),
-                                                      stopprice))  # 原止损价，低点算出的止损价格，hbond三者最高
-
+                                                      stopprice))  # 原止损价，低点算出的止损价格，二者最高
+            # 计算浮亏数据
+            self.obj_PM.cal_maxfloatingfp(H, L)
         # end结束演算
         # 计算业绩
         self.obj_PM.calc_performance(dates)
