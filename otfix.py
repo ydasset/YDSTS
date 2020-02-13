@@ -142,5 +142,5 @@ class OTfix:
         # 导出成交记录
         self.obj_PM.export_matchrecord()
         # 计算业绩
-        self.obj_PM.calc_performance()
+        self.obj_PM.calc_performance(dates)
         print("策略回测结束")
