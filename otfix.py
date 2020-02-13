@@ -34,6 +34,7 @@ class OTfix:
         self.isdaytrade = True  # 日内交易
         self.allowcloseinday = True  # 允许日内平仓
 
+
     """
     策略回测执行
     """
@@ -142,5 +143,5 @@ class OTfix:
         # 导出成交记录
         self.obj_PM.export_matchrecord()
         # 计算业绩
-        self.obj_PM.calc_performance()
+        self.obj_PM.calc_performance(dates)
         print("策略回测结束")
