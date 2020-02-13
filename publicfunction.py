@@ -1,5 +1,6 @@
 import xlsxwriter
 import csv
+import os
 
 """
 函数名称：dict_to_excel
@@ -11,8 +12,11 @@ import csv
 def export_to_excel(dictlist):
     """
     将字典列表写入excel中
-
     """
+    # 检查输出目录，没有就创建
+    out_path = r'./testresult'
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
     # 输出文件的路径
     out_excel_file = r'./testresult/matchrecord.xlsx'
     # 创建sheet
