@@ -36,9 +36,9 @@ class MAWR:
         self.overbought = 80  # 超买值
         self.oversold = 20  # 超卖值
 
-        self.open_btime1 = "14:00:00"  # 日间允许开仓时间段1 09:05:00  09:35:00
+        self.open_btime1 = "09:35:00"  # 日间允许开仓时间段1 09:05:00  09:35:00
         self.open_etime1 = "14:55:00"
-        self.open_btime2 = "09:05:00"  # 日间允许开仓时间段2
+        self.open_btime2 = "09:35:00"  # 日间允许开仓时间段2 09:05:00  09:35:00
         self.open_etime2 = "14:55:00"
         self.forceclose_btime1 = '14:55:00'  # 强制平仓时间段1
         self.forceclose_etime1 = '15:30:00'
