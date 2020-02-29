@@ -13,6 +13,6 @@ import numpy as np
 
 
 if __name__ == '__main__':
-    st = MAWR('SC888')
+    st = MAWR('IF888')
     st.exec()
     exit()

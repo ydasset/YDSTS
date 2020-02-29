@@ -267,3 +267,19 @@ def WR(seq, n):
         lst_wr.append(wrval)
     result = mergedictlist_list(seq, lst_wr, 'WR')
     return result
+
+"""
+标准差指标
+"""
+def STD(seq,n):
+    result = []
+    closelist = []
+    for i in range(len(seq)):
+        result = seq[i].copy()
+        p_close = float(tempdict['p_close'])
+        closelist.append(p_close)
+
+    stdlist = movestd(closelist, n)
+
+    result = mergedictlist_list(result, stdlist, 'stddev')
+    return result
