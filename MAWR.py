@@ -172,7 +172,7 @@ class MAWR:
             # 2、WR进入超卖区
             if self.obj_PM.get_currdirect() == 0 \
                     and mashort1 > malong1 \
-                    and wrval2 > self.oversold >= wrval1:
+                    and wrval2 > self.oversold >= wrval1:  # update
                 self.obj_PM.long(O)  # 开多(开盘价）
                 self.obj_PM.set_stopprice(O)
                 tradetimes = tradetimes + 1  # 开仓计数器+1
