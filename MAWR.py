@@ -32,22 +32,23 @@ class MAWR:
         self.malen_short = 30  # MA短线长度
         self.malen_long = 60  # MA长线长度
         self.wrlen = 5  # WR长度
+        self.stdlen = 240  # 波动计算长度
 
         self.overbought = 80  # 超买值
         self.oversold = 20  # 超卖值
 
-        self.open_btime1 = "09:35:00"  # 日间允许开仓时间段1
-        self.open_etime1 = "14:55:00"
-        self.open_btime2 = "09:35:00"  # 日间允许开仓时间段2
-        self.open_etime2 = "14:55:00"
-        self.forceclose_btime1 = '14:55:00'  # 强制平仓时间段1
+        self.open_btime1 = "09:01:00"  # 日间允许开仓时间段1
+        self.open_etime1 = "14:59:00"
+        self.open_btime2 = "09:01:00"  # 日间允许开仓时间段2
+        self.open_etime2 = "14:59:00"
+        self.forceclose_btime1 = '14:59:00'  # 强制平仓时间段1
         self.forceclose_etime1 = '15:30:00'
-        self.forceclose_btime2 = '14:55:00'  # 强制平仓时间段2
+        self.forceclose_btime2 = '14:59:00'  # 强制平仓时间段2
         self.forceclose_etime2 = '15:30:00'
 
         self.forcestop = False  # 是否强制止损
         self.movestop = False  # 是否移动止损（跟踪止损）
-        self.stoprate = 1  # 止损百分比，修改为0时，不止损
+        self.stoprate = 2  # 止损百分比，修改为0时，不止损
         self.ATRmults = 0.5  # ATR倍数
 
         self.allowshort = True  # 允许做空
@@ -74,7 +75,7 @@ class MAWR:
         hqlist_pro = MA(hqlist_pro, self.malen_short)  # MA_short
         hqlist_pro = MA(hqlist_pro, self.malen_long)  # MA_long
         hqlist_pro = WR(hqlist_pro, self.wrlen)  # 威廉WR指标
-
+        # hqlist_pro = STD(hqlist_pro, self.stdlen)  # 波动率指标
         # 测试数据
         # if export_to_excel(hqlist_pro):
         #     print("已成功导出到excel")
@@ -134,12 +135,12 @@ class MAWR:
             # 多头平仓（条件和开空一样）
             if self.obj_PM.get_currdirect() == 1 \
                     and mashort1 < malong1 \
-                    and wrval2 < self.overbought < wrval1:
+                    and wrval2 < self.overbought <= wrval1:
                 self.obj_PM.closeposition(O)
             # 空头平仓
             elif self.obj_PM.get_currdirect() == -1 \
                     and mashort1 > malong1 \
-                    and wrval2 > self.oversold > wrval1:
+                    and wrval2 > self.oversold >= wrval1:
                 self.obj_PM.closeposition(O)
             # 强制止损
             if self.forcestop and (self.allowcloseinday or self.obj_PM.get_curropendate() != date):  # 当日允许平仓（T+0）
@@ -171,7 +172,7 @@ class MAWR:
             # 2、WR进入超卖区
             if self.obj_PM.get_currdirect() == 0 \
                     and mashort1 > malong1 \
-                    and wrval2 > self.oversold > wrval1:
+                    and wrval2 > self.oversold >= wrval1:
                 self.obj_PM.long(O)  # 开多(开盘价）
                 self.obj_PM.set_stopprice(O)
                 tradetimes = tradetimes + 1  # 开仓计数器+1
@@ -181,7 +182,7 @@ class MAWR:
             # 2、WR进入超买区
             elif self.obj_PM.get_currdirect() == 0 and self.allowshort \
                     and mashort1 < malong1 \
-                    and wrval2 < self.overbought < wrval1:
+                    and wrval2 < self.overbought <= wrval1:
                 self.obj_PM.short(O)  # 开空
                 self.obj_PM.set_stopprice(O)
                 tradetimes = tradetimes + 1
