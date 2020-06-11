@@ -8,7 +8,9 @@ class PositionMgr:
     """
     初始化参数
     """
-    def __init__(self):
+    def __init__(self, feemod=None):
+        self.feemod = feemod
+        print(self.feemod)
         # 当前持仓信息
         self.__init_Currentpos()
         # 成交记录
@@ -153,7 +155,7 @@ class PositionMgr:
     业绩计算
     """
     def calc_performance(self, dates):
-        ps = Performance(self.list_matchrecord)
+        ps = Performance(self.list_matchrecord, self.feemod)
         ps.calcperformence(dates)
         return
 

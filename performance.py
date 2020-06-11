@@ -2,9 +2,10 @@ from publicfunction import *
 import matplotlib.pyplot as plt
 
 class Performance:
-    def __init__(self, matchrecs):
+    def __init__(self, matchrecs, feemod=None):
         self.matchrecs = matchrecs
         self.calcresult = {}
+        self.feemod = feemod
 
     def calcperformence(self, dates):
         # 计算收益和累计收益
@@ -17,10 +18,43 @@ class Performance:
         calprofit = 0.000  # 累计收益
         calyieldrate = 0.00  # 累计收益率
         wintimes = 0  # 盈利次数
+
+        # 设置手续费
+        if self.feemod is None:
+            fee_type = 1
+            fee_open = 0
+            fee_closetoday = 0
+            fee_close = 0
+            multi = 1
+        else:
+            fee_type = self.feemod['fee_type']
+            fee_open = self.feemod['fee_open']
+            fee_closetoday = self.feemod['fee_closetoday']
+            fee_close = self.feemod['fee_close']
+            multi = self.feemod['multi']
+        #开始计算
+        fee = 0
         for rec in self.matchrecs:
-            profit = (rec['closeprice'] - rec['openprice']) * rec['direction']
+            profit = (rec['closeprice'] - rec['openprice']) * rec['direction'] * multi
+            # 计算手续费
+            if self.feemod is None:  # 没有手续费的情况
+                fee = 0
+            else:
+                if fee_type == 0:
+                    fee = rec['openprice'] * multi * fee_open/10000  # 开仓手续费
+                    if rec['opendate'] != rec['closedate']:  # 不是平今
+                        fee += rec['closeprice'] * multi * fee_close/10000
+                    else:  # 平今仓
+                        fee += rec['closeprice'] * multi * fee_closetoday/10000
+                elif fee_type == 1:
+                    fee = fee_open  # 开仓手续费
+                    if rec['opendate'] != rec['closedate']:  # 不是平今
+                        fee += fee_close
+                    else:  # 平今仓
+                        fee += fee_closetoday
+            profit -= fee
             calprofit += profit
-            yieldrate = profit / rec['openprice']
+            yieldrate = profit / (rec['openprice']*multi)
             calyieldrate = (1+calyieldrate) * (1+yieldrate) - 1
             maxfprate = rec['maxprofit'] / rec['openprice']
             maxflrate = rec['maxloss'] / rec['openprice']
@@ -56,9 +90,12 @@ class Performance:
         print("年化收益率：{:.2f}%".format(yielrate_peryear * 100))
         print("最大回撤：{:.2f}%".format(maxdd * 100))
         print("最大收益回撤比:{:.2f}".format(yielrate_peryear/abs(maxdd)))
+        print("总利润：{:.2f}".format(calprofit))
         print("总交易次数：{:d}".format(matchcount))
+        print("平均净利润：{:.2f}".format(calprofit / matchcount))
         print("盈利次数：{:d}".format(wintimes))
         print("胜率：{:.2f}%" .format(winrate*100))
+
 
         # for x in self.matchrec:
         #     print(x)

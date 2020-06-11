@@ -3,33 +3,48 @@ from position import *
 from quotecenter import *
 
 """
-策略回测类
-MA+WR
+趋势跟踪策略模板（TendModel)
 说明：
-    本策略采用MA作为大周期趋势判断，使用WR指标进行左侧开平仓
+    所有策略都包括以下几个部分：
+    1、方向信号器（判断多空）
+    2、趋势过滤器（判断波动及波幅）
+    3、开仓点位选择
+    4、止盈止损策略
+    5、仓位管理策略
 """
-
-
-class MAWR:
+class TendModel:
     """
     初始化参数
     1、ds:数据源（默认为空，即数据库，如果为文件路径，则为文件数据）
     2、交易品种
     """
 
-    def __init__(self, stkcode, feemod=None, ds='csv'):
+    def __init__(self, stkcode, ds='csv'):
+        # 创建行情中心类
+        self.obj_QC = QuoteCenter(stkcode, ds)
+        # 创建仓位管理对象
+        self.obj_PM = PositionMgr()
+        self.tickseries = self.obj_QC.tickseries.copy()  # 从行情中心对象中复制行情序列
+        self.matchrecord = []  # 成交记录
+
         """
-        策略运行参数
+        指标运行参数
         """
         self.bars = 1  # 指标参数
         self.malen_short = 30  # MA短线长度
         self.malen_long = 60  # MA长线长度
+        self.ma2len_short = 120  # MA短线长度（长周期）
+        self.ma2len_long = 240  # MA长线长度（长周期）
         self.wrlen = 5  # WR长度
+        self.overbought = 80  # WR超买值
+        self.oversold = 20  # WR超卖值
         self.stdlen = 240  # 波动计算长度
-
-        self.overbought = 80  # 超买值
-        self.oversold = 20  # 超卖值
-
+        """
+        交易参数
+        """
+        self.allowshort = True  # 允许做空
+        self.isdaytrade = True  # 日内交易
+        self.allowcloseinday = True  # 允许日内平仓
         self.open_btime1 = "09:01:00"  # 日间允许开仓时间段1
         self.open_etime1 = "14:55:00"
         self.open_btime2 = "09:01:00"  # 日间允许开仓时间段2
@@ -38,23 +53,15 @@ class MAWR:
         self.forceclose_etime1 = '15:30:00'
         self.forceclose_btime2 = '14:55:00'  # 强制平仓时间段2
         self.forceclose_etime2 = '15:30:00'
+        self.maxtimesinday = 10000  # 每日最大开仓次数
 
+        """
+        风险控制参数
+        """
         self.forcestop = False  # 是否强制止损
         self.movestop = False  # 是否移动止损（跟踪止损）
         self.stoprate = 2  # 止损百分比，修改为0时，不止损
-        self.ATRmults = 0.5  # ATR倍数
 
-        self.allowshort = True  # 允许做空
-        self.isdaytrade = True  # 日内交易
-        self.allowcloseinday = True  # 允许日内平仓
-        self.maxtimesinday = 10000  # 每日最大开仓次数
-        self.feemod = feemod  # 手续费模板
-        # 创建行情中心类
-        self.obj_QC = QuoteCenter(stkcode, ds)
-        # 创建仓位管理对象
-        self.obj_PM = PositionMgr(self.feemod)
-        self.tickseries = self.obj_QC.tickseries.copy()  # 从行情中心对象中复制行情序列
-        self.matchrecord = []  # 成交记录
 
     """
     策略回测执行
@@ -64,7 +71,6 @@ class MAWR:
         # 总天数;
         dates = 0
         strdate = ''
-
         """
         加载高级别指标
         """
@@ -74,6 +80,8 @@ class MAWR:
         # 取MA指标
         hqlist_pro = MA(hqlist_pro, self.malen_short)  # MA_short
         hqlist_pro = MA(hqlist_pro, self.malen_long)  # MA_long
+        hqlist_pro = MA(hqlist_pro, self.ma2len_short)  # MA2_short//长周期
+        hqlist_pro = MA(hqlist_pro, self.ma2len_long)  # MA2_long//长周期
         hqlist_pro = WR(hqlist_pro, self.wrlen)  # 威廉WR指标
         # hqlist_pro = STD(hqlist_pro, self.stdlen)  # 波动率指标
         # 测试数据
