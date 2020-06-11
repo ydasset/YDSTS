@@ -32,13 +32,13 @@ class QuoteCenter:
         self.enddate = "20191231"
 
         # 加载数据
-        self.__load_Quote_data()
+        self.__load_quote_data()
 
     """
     加载行情数据
     """
 
-    def __load_Quote_data(self):
+    def __load_quote_data(self):
         if self.ds == 'db':  # 数据库连接方式
             ms = MSSQL(self.host, self.user, self.pwd, self.db)
             self.tickseries = ms.ExecQuery(
@@ -48,7 +48,8 @@ class QuoteCenter:
             self.tickseries = load_from_csv(srcpath)
 
     # 生成任意小时K线
-    def createhourbar(self, seq, hours):
+    @staticmethod
+    def createhourbar(seq, hours):
         result = []
         for i in range(len(seq)):
             bar = seq[i].copy()
@@ -66,7 +67,8 @@ class QuoteCenter:
         return result
 
     # 生成任意分钟K线,minutes最大60，最小1
-    def createminutebar(self, seq, minutes):
+    @staticmethod
+    def createminutebar(seq, minutes):
         result = []
         for i in range(len(seq)):
             bar = seq[i].copy()
@@ -82,7 +84,8 @@ class QuoteCenter:
                 result.append(tempdict)
         return result
 
-    def create4hbar(self, seq):
+    @staticmethod
+    def create4hbar(seq):
         result = []
         for i in range(len(seq)):
             bar = seq[i].copy()
@@ -99,7 +102,8 @@ class QuoteCenter:
                 result.append(tempdict)
         return result
 
-    def create1hbar(self, seq):
+    @staticmethod
+    def create1hbar(seq):
         result = []
         for i in range(len(seq)):
             bar = seq[i].copy()
@@ -116,7 +120,8 @@ class QuoteCenter:
                 result.append(tempdict)
         return result
 
-    def createdailybar(self, seq):
+    @staticmethod
+    def createdailybar(seq):
         result = []
         for i in range(len(seq)):
             bar = seq[i].copy()

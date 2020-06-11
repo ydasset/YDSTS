@@ -3,7 +3,7 @@ from position import *
 from quotecenter import *
 
 """
-趋势跟踪策略模板（TendModel)
+趋势跟踪策略模板（TrendModel)
 说明：
     所有策略都包括以下几个部分：
     1、方向信号器（判断多空）
@@ -12,7 +12,7 @@ from quotecenter import *
     4、止盈止损策略
     5、仓位管理策略
 """
-class TendModel:
+class TrendModel:
     """
     初始化参数
     1、ds:数据源（默认为空，即数据库，如果为文件路径，则为文件数据）
