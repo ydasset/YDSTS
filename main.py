@@ -9,6 +9,7 @@ from bollleft import *
 from bollright import *
 from MultiFiter1 import *
 from MAWR import *
+from trendmodel import *
 import numpy as np
 
 
@@ -20,6 +21,6 @@ if __name__ == '__main__':
     # fee_close: 平昨仓手续费（%%）
     # multi: 合约乘数
     feemod = {'fee_type': 0, 'fee_open': 0.25, "fee_closetoday": 0.25, 'fee_close': 0.25, 'multi': 300}
-    st = MAWR('IF888', feemod)
+    st = DualThrust('IF888', feemod)
     st.exec()
     exit()

@@ -11,14 +11,7 @@ class DualThrust:
     1、ds:数据源（默认为空，即数据库，如果为文件路径，则为文件数据）
     2、交易品种
     """
-    def __init__(self, stkcode, ds='csv'):
-        # 创建行情中心类
-        self.obj_QC = QuoteCenter(stkcode, ds)
-        # 创建仓位管理对象
-        self.obj_PM = PositionMgr()
-        self.tickseries = self.obj_QC.tickseries.copy()  # 从行情中心对象中复制行情序列
-        self.matchrecord = []  # 成交记录
-
+    def __init__(self, stkcode, feemod=None, ds='csv'):
         """
         策略运行参数
         """
@@ -32,10 +25,17 @@ class DualThrust:
         self.ATRmults = 0.5  # ATR倍数
 
         self.allowshort = True  # 允许做空
-        self.isdaytrade = True  # 日内交易
+        self.isdaytrade = False  # 日内交易
         self.allowcloseinday = True  # 允许日内平仓
 
         self.maxtimesinday = 100  # 每日最大开仓次数
+        self.feemod = feemod
+        # 创建行情中心类
+        self.obj_QC = QuoteCenter(stkcode, ds)
+        # 创建仓位管理对象
+        self.obj_PM = PositionMgr(self.feemod)
+        self.tickseries = self.obj_QC.tickseries.copy()  # 从行情中心对象中复制行情序列
+        self.matchrecord = []  # 成交记录
     """
     加载行情数据
     """
