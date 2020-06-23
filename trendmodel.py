@@ -20,6 +20,7 @@ class TrendModel:
     """
 
     def __init__(self, stkcode, feemod=None, ds='csv'):
+        self.feemod = feemod  # 手续费模板
         """
         指标运行参数
         """
@@ -31,10 +32,11 @@ class TrendModel:
         self.wrlen = 5  # WR长度
         self.overbought = 80  # WR超买值
         self.oversold = 20  # WR超卖值
-        self.stdlen = 240  # 波动计算长度
+        self.cvlen = 240  # 波动计算长度
         """
         交易参数
         """
+        self.allowfilter = True  # 震荡过滤器开关
         self.allowshort = True  # 允许做空
         self.isdaytrade = True  # 日内交易
         self.allowcloseinday = True  # 允许日内平仓
@@ -47,8 +49,6 @@ class TrendModel:
         self.forceclose_btime2 = '14:55:00'  # 强制平仓时间段2
         self.forceclose_etime2 = '15:30:00'
         self.maxtimesinday = 10000  # 每日最大开仓次数
-        self.feemod = feemod
-
         """
         风险控制参数
         """
@@ -72,7 +72,7 @@ class TrendModel:
         dates = 0
         strdate = ''
         """
-        加载高级别指标
+        计算指标数据
         """
         # 取指标数据
         hqlist_pro = self.obj_QC.createminutebar(self.tickseries, self.bars)
@@ -82,15 +82,15 @@ class TrendModel:
         hqlist_pro = MA(hqlist_pro, self.ma2len_short)  # MA2_short//长周期
         hqlist_pro = MA(hqlist_pro, self.ma2len_long)  # MA2_long//长周期
         hqlist_pro = WR(hqlist_pro, self.wrlen)  # 威廉WR指标
-        # hqlist_pro = STD(hqlist_pro, self.stdlen)  # 波动率指标
-        # 测试数据
+        hqlist_pro = CV(hqlist_pro, self.cvlen)  # 变异系数指标
+        # # 测试数据
         # if export_to_excel(hqlist_pro):
         #     print("已成功导出到excel")
         # else:
         #     print('导入excel失败！')
         # exit()
-        marketdirect = 0  # 市场大方向
         tradetimes = 0  # 交易计数器
+        istrend = True  # 市场趋势判断
         # 策略演算（循环主程序）
         for i in range(len(self.tickseries)):  # 循环读取
             ahq = self.tickseries[i]
@@ -127,6 +127,11 @@ class TrendModel:
             # 取出前2个bar的WR值
             wrval2 = getvaluefromdictlist(hqlist_pro, i-2, 'WR')
 
+            # 取出前1个bar的CV值
+            cv1 = getvaluefromdictlist(hqlist_pro, i-1, 'cv')
+            # 取出前ma1len_short个bar的标准差值
+            cv2 = getvaluefromdictlist(hqlist_pro, i - self.ma1len_short - 1, 'cv')
+
             # 同步交易时间
             self.obj_PM.sync_ticktime(date, time)
             # 读取计划止损点
@@ -141,20 +146,24 @@ class TrendModel:
                     if self.obj_PM.get_currdirect() != 0:  # 如果不是空仓
                         self.obj_PM.closeposition(O)  # 以开盘价平仓（注意前面是大写字母O，不是0）
                     continue
-            # =======（方向过滤器）=========#
+            ''' =======（方向过滤器）=========#
             # 大周期判断市场主方向
-            # ============================#
+            # ============================'''
             if ma2short1 > ma2long1:
                 marketdirect = 1
             else:
                 marketdirect = -1
-            # =======（趋势过滤器）=========#
+            ''' =======（趋势过滤器）=========#
             # 趋势过滤器
-            # ============================#
-
-            # =======（出场判断）=========#
+            # ============================'''
+            if self.allowfilter:  # 过滤开关
+                if 0.2 < (cv1 * 100) < 1 and cv1 > cv2:
+                    istrend = True
+                else:
+                    istrend = False
+            ''' =======（出场判断）=========#
             # 指标出场
-            # ============================#
+            # ============================'''
             # 多头平仓（条件和开空一样）
             if self.obj_PM.get_currdirect() == 1 \
                     and ma1short1 < ma1long1 \
@@ -165,9 +174,9 @@ class TrendModel:
                     and ma1short1 > ma1long1 \
                     and wrval2 > self.oversold >= wrval1:
                 self.obj_PM.closeposition(O)
-            # =======（出场判断）=========#
+            ''' =======（出场判断）=========#
             # 止损出场
-            # ============================#
+            # ============================'''
             # 强制止损
             if self.forcestop and (self.allowcloseinday or self.obj_PM.get_curropendate() != date):  # 当日允许平仓（T+0）
                 if self.obj_PM.get_currdirect() == 1:
@@ -184,19 +193,22 @@ class TrendModel:
                     if H >= stopprice:  # 平仓
                         self.obj_PM.closeposition(stopprice)
                         continue
-            # =======（进场）=========#
+            ''' =======（进场）=========#
             # 指标进场
-            # ============================#
+            # ============================'''
             if self.isdaytrade \
                     and ((time < self.open_btime1 or time >= self.open_etime1
                          or time < self.open_btime2 or time >= self.open_etime2)
                          or (tradetimes >= self.maxtimesinday)):
                 continue
+            if not istrend:  # 处在低波动（震荡市）则返回
+                continue
             # 开多条件
             # 多头开仓条件：
             # 1、MA大周期呈多头排列
             # 2、MA双线呈多头排列（短上长下)
-            # 2、WR进入超卖区
+            # 3、WR进入超卖区
+
             if self.obj_PM.get_currdirect() == 0 \
                     and marketdirect == 1 \
                     and ma1short1 > ma1long1 \
@@ -210,7 +222,7 @@ class TrendModel:
             # 2、MA双线呈空头排列（短下长上）
             # 3、WR进入超买区
             elif self.obj_PM.get_currdirect() == 0 and self.allowshort \
-                    and marketdirect == 1 \
+                    and marketdirect == -1 \
                     and ma1short1 < ma1long1 \
                     and wrval2 < self.overbought <= wrval1:
                 self.obj_PM.short(O)  # 开空

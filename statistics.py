@@ -7,10 +7,11 @@ def average(numlist):
     avg = sum(numlist)/(len(numlist)) #调用sum函数求和
     return avg
 
+
 """
 功能：对列表数据求移动平均值
 """
-def moveavg(numlist,n):
+def moveavg(numlist, n):
     result = []
     for i in range(len(numlist)):
         if i < n:  # 第一条记录
@@ -29,7 +30,7 @@ def moveavg(numlist,n):
 """
 功能：对列表数据求移动标准差
 """
-def movestd(numlist,n):
+def movestd(numlist, n):
     result = []
     for i in range(len(numlist)):
         if i < n:  # 第一条记录
@@ -48,9 +49,31 @@ def movestd(numlist,n):
     return result
 
 """
+功能：对列表数据求移动变异系数(即标准差除以平均值)
+"""
+def movecv(numlist, n):
+    result = []
+    for i in range(len(numlist)):
+        if i < n:  # 第一条记录
+            j = 0
+        else:
+            j = i-n+1
+        templist = []
+        for k in range(j, i+1):
+            val = numlist[k]
+            templist.append(val)
+        if len(templist) == 1:
+            cvval = 0
+        else:
+            cvval = np.std(templist, ddof=1)/np.average(templist)
+        result.append(cvval)
+    return result
+
+
+"""
 功能：对列表数据求出n个区间内的最大值(移动计算)
 """
-def movemax(numlist,n):
+def movemax(numlist, n):
     result = []
     for i in range(len(numlist)):
         if i < n:  # 第一条记录
@@ -68,10 +91,11 @@ def movemax(numlist,n):
         result.append(maxval)
     return result
 
+
 """
 功能：对列表数据求出n个区间内的最小值(移动计算)
 """
-def movemin(numlist,n):
+def movemin(numlist, n):
     result = []
     for i in range(len(numlist)):
         if i < n:  # 第一条记录

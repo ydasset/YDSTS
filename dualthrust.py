@@ -1,6 +1,7 @@
 from quotecenter import *
 from indicator import *
 from position import *
+from datetime import datetime
 
 """
 策略回测类
@@ -17,15 +18,14 @@ class DualThrust:
         """
         # 时间段
         self.begindate = "20100101"
-        self.enddate = "20181231"
-
-        self.forcestop = False  # 是否强制止损
-        self.movestop = False  # 是否移动止损（跟踪止损）
+        self.enddate = "20201231"
+        self.forcestop = True  # 是否强制止损
+        self.movestop = True  # 是否移动止损（跟踪止损）
         self.stoprate = 1  # 止损百分比，修改为0时，不止损
         self.ATRmults = 0.5  # ATR倍数
 
         self.allowshort = True  # 允许做空
-        self.isdaytrade = False  # 日内交易
+        self.isdaytrade = True  # 日内交易
         self.allowcloseinday = True  # 允许日内平仓
 
         self.maxtimesinday = 100  # 每日最大开仓次数
@@ -54,7 +54,12 @@ class DualThrust:
         """
         加载高级别指标
         """
-        # # 取日线数据
+        # 计算总天数
+        d1 = datetime.strptime(self.begindate, '%Y%m%d')
+        d2 = datetime.strptime(self.enddate, '%Y%m%d')
+        d = d2 - d1
+        dates = int(d.days * 0.7)  # 近似折算交易日250/360
+        # 取日线数据
         hqlist_day = self.obj_QC.createdailybar(self.tickseries)
         # 给日线数据叠加hqllist_day指标；
         hqlist_day = DT(hqlist_day)
@@ -70,7 +75,9 @@ class DualThrust:
             # C = float(ahq['p_close'])  # 收盘价
             date = ahq['date']  # 当前日期
             time = ahq['time']  # 当前bar的时间
-
+            # 选择时间段
+            if date < self.begindate or date > self.enddate:
+                continue
             # 前一个bar的信息
             if i != 0:
                 ahq1 = self.tickseries[i - 1]
@@ -158,5 +165,5 @@ class DualThrust:
 
         # end结束演算
         # 计算业绩
-        self.obj_PM.calc_performance(len(hqlist_day))
+        self.obj_PM.calc_performance(dates)
         print("策略回测结束")

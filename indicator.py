@@ -268,18 +268,31 @@ def WR(seq, n):
     result = mergedictlist_list(seq, lst_wr, 'WR')
     return result
 
+
 """
 标准差指标
 """
-def STD(seq,n):
+def STD(seq, n):
     result = []
     closelist = []
     for i in range(len(seq)):
-        result = seq[i].copy()
+        tempdict = seq[i].copy()
         p_close = float(tempdict['p_close'])
         closelist.append(p_close)
-
     stdlist = movestd(closelist, n)
+    result = mergedictlist_list(seq, stdlist, 'stddev')
+    return result
 
-    result = mergedictlist_list(result, stdlist, 'stddev')
+"""
+变异系数指标
+"""
+def CV(seq, n):
+    result = []
+    closelist = []
+    for i in range(len(seq)):
+        tempdict = seq[i].copy()
+        p_close = float(tempdict['p_close'])
+        closelist.append(p_close)
+    cvlist = movecv(closelist, n)
+    result = mergedictlist_list(seq, cvlist, 'cv')
     return result
