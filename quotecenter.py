@@ -15,7 +15,7 @@ class QuoteCenter:
     2、交易品种
     """
 
-    def __init__(self, stkcode, ds='csv'):
+    def __init__(self, stkcode, ds='csv', begindate="", enddate=""):
         self.stkcode = stkcode
         self.ds = ds
         #  数据库参数
@@ -28,8 +28,8 @@ class QuoteCenter:
         self.tickseries = []  # 行情序列
 
         # 时间段
-        self.begindate = "20100101"
-        self.enddate = "20191231"
+        self.begindate = begindate
+        self.enddate = enddate
 
         # 加载数据
         self.__load_quote_data()

@@ -19,13 +19,13 @@ class DualThrust:
         # 时间段
         self.begindate = "20100101"
         self.enddate = "20201231"
-        self.forcestop = True  # 是否强制止损
-        self.movestop = True  # 是否移动止损（跟踪止损）
+        self.forcestop = False  # 是否强制止损
+        self.movestop = False  # 是否移动止损（跟踪止损）
         self.stoprate = 1  # 止损百分比，修改为0时，不止损
         self.ATRmults = 0.5  # ATR倍数
 
         self.allowshort = True  # 允许做空
-        self.isdaytrade = True  # 日内交易
+        self.isdaytrade = False  # 日内交易
         self.allowcloseinday = True  # 允许日内平仓
 
         self.maxtimesinday = 100  # 每日最大开仓次数

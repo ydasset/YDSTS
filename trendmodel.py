@@ -36,18 +36,20 @@ class TrendModel:
         """
         交易参数
         """
+        self.begindate = "20100101"
+        self.enddate = "20201231"
         self.allowfilter = True  # 震荡过滤器开关
         self.allowshort = True  # 允许做空
         self.isdaytrade = True  # 日内交易
         self.allowcloseinday = True  # 允许日内平仓
-        self.open_btime1 = "09:30:00"  # 日间允许开仓时间段1
+        self.open_btime1 = "09:00:00"  # 日间允许开仓时间段1
         self.open_etime1 = "14:55:00"
-        self.open_btime2 = "09:30:00"  # 日间允许开仓时间段2
-        self.open_etime2 = "14:55:00"
+        self.open_btime2 = "21:00:00"  # 日间允许开仓时间段2
+        self.open_etime2 = "22:55:00"
         self.forceclose_btime1 = '14:55:00'  # 强制平仓时间段1
         self.forceclose_etime1 = '15:30:00'
-        self.forceclose_btime2 = '14:55:00'  # 强制平仓时间段2
-        self.forceclose_etime2 = '15:30:00'
+        self.forceclose_btime2 = '22:55:00'  # 强制平仓时间段2
+        self.forceclose_etime2 = '23:30:00'
         self.maxtimesinday = 10000  # 每日最大开仓次数
         """
         风险控制参数
@@ -55,8 +57,9 @@ class TrendModel:
         self.forcestop = False  # 是否强制止损
         self.movestop = False  # 是否移动止损（跟踪止损）
         self.stoprate = 2  # 止损百分比，修改为0时，不止损
+
         # 创建行情中心类
-        self.obj_QC = QuoteCenter(stkcode, ds)
+        self.obj_QC = QuoteCenter(stkcode, ds, self.begindate, self.enddate)
         # 创建仓位管理对象
         self.obj_PM = PositionMgr(self.feemod)
         self.tickseries = self.obj_QC.tickseries.copy()  # 从行情中心对象中复制行情序列
@@ -197,8 +200,7 @@ class TrendModel:
             # 指标进场
             # ============================'''
             if self.isdaytrade \
-                    and ((time < self.open_btime1 or time >= self.open_etime1
-                         or time < self.open_btime2 or time >= self.open_etime2)
+                    and ((time < self.open_btime1 or self.open_etime1 <= time < self.open_btime2 or time >= self.open_etime2)
                          or (tradetimes >= self.maxtimesinday)):
                 continue
             if not istrend:  # 处在低波动（震荡市）则返回
@@ -208,9 +210,7 @@ class TrendModel:
             # 1、MA大周期呈多头排列
             # 2、MA双线呈多头排列（短上长下)
             # 3、WR进入超卖区
-
             if self.obj_PM.get_currdirect() == 0 \
-                    and marketdirect == 1 \
                     and ma1short1 > ma1long1 \
                     and wrval2 > self.oversold >= wrval1:  # update
                 self.obj_PM.long(O)  # 开多(开盘价）
@@ -218,11 +218,10 @@ class TrendModel:
                 tradetimes = tradetimes + 1  # 开仓计数器+1
             # 开空条件
             # 空头开仓条件：
-            # 1、MA大周期呈空头排列
+            # 1、MA大周期呈空头排列and marketdirect == -1 \
             # 2、MA双线呈空头排列（短下长上）
             # 3、WR进入超买区
             elif self.obj_PM.get_currdirect() == 0 and self.allowshort \
-                    and marketdirect == -1 \
                     and ma1short1 < ma1long1 \
                     and wrval2 < self.overbought <= wrval1:
                 self.obj_PM.short(O)  # 开空
