@@ -1,6 +1,8 @@
 from indicator import *
 from position import *
 from quotecenter import *
+from statistics import *
+import pandas as pd
 
 """
 趋势跟踪策略模板（TrendModel)
@@ -62,7 +64,7 @@ class TrendModel:
         self.obj_QC = QuoteCenter(stkcode, ds, self.begindate, self.enddate)
         # 创建仓位管理对象
         self.obj_PM = PositionMgr(self.feemod)
-        self.tickseries = self.obj_QC.tickseries.copy()  # 从行情中心对象中复制行情序列
+        self.tickseries = self.obj_QC.tickseries  # 从行情中心对象中复制行情序列
         self.matchrecord = []  # 成交记录
 
 
@@ -78,20 +80,19 @@ class TrendModel:
         计算指标数据
         """
         # 取指标数据
-        hqlist_pro = self.obj_QC.createminutebar(self.tickseries, self.bars)
+        hqlist_pro = self.obj_QC.createminutebar(self.bars)
         # 取MA指标
-        hqlist_pro = MA(hqlist_pro, self.ma1len_short)  # MA1_short
-        hqlist_pro = MA(hqlist_pro, self.ma1len_long)  # MA1_long
-        hqlist_pro = MA(hqlist_pro, self.ma2len_short)  # MA2_short//长周期
-        hqlist_pro = MA(hqlist_pro, self.ma2len_long)  # MA2_long//长周期
+        hqlist_pro = MA(hqlist_pro, 'p_close', self.ma1len_short)  # MA1_short
+        hqlist_pro = MA(hqlist_pro, 'p_close', self.ma1len_long)  # MA1_long
+        hqlist_pro = MA(hqlist_pro, 'p_close', self.ma2len_short)  # MA2_short//长周期
+        hqlist_pro = MA(hqlist_pro, 'p_close', self.ma2len_long)  # MA2_long//长周期
         hqlist_pro = WR(hqlist_pro, self.wrlen)  # 威廉WR指标
-        hqlist_pro = CV(hqlist_pro, self.cvlen)  # 变异系数指标
-        # # 测试数据
-        # if export_to_excel(hqlist_pro):
-        #     print("已成功导出到excel")
-        # else:
-        #     print('导入excel失败！')
-        # exit()
+        hqlist_pro = CV(hqlist_pro, 'p_close', self.cvlen)  # 变异系数指标
+
+        # 转换数据格式为list
+        self.tickseries = pd.DataFrame.to_dict(self.tickseries, orient='records')
+        hqlist_pro = pd.DataFrame.to_dict(hqlist_pro, orient='records')
+
         tradetimes = 0  # 交易计数器
         istrend = True  # 市场趋势判断
         # 策略演算（循环主程序）
@@ -113,8 +114,10 @@ class TrendModel:
             if i != 0:
                 ahq1 = self.tickseries[i - 1]
                 date1 = ahq1['date']
+                C1 = float(ahq1['p_close'])  # 前收
             else:
                 date1 = date
+                C1 = C
 
             # 取出前1的MA值
             ma1short1 = getvaluefromdictlist(hqlist_pro, i-1, 'MA' + str(self.ma1len_short))
@@ -131,9 +134,9 @@ class TrendModel:
             wrval2 = getvaluefromdictlist(hqlist_pro, i-2, 'WR')
 
             # 取出前1个bar的CV值
-            cv1 = getvaluefromdictlist(hqlist_pro, i-1, 'cv')
+            cv1 = getvaluefromdictlist(hqlist_pro, i-1, 'CV')
             # 取出前ma1len_short个bar的标准差值
-            cv2 = getvaluefromdictlist(hqlist_pro, i - self.ma1len_short - 1, 'cv')
+            cv2 = getvaluefromdictlist(hqlist_pro, i - self.ma1len_short - 1, 'CV')
 
             # 同步交易时间
             self.obj_PM.sync_ticktime(date, time)
@@ -160,7 +163,7 @@ class TrendModel:
             # 趋势过滤器
             # ============================'''
             if self.allowfilter:  # 过滤开关
-                if 0.2 < (cv1 * 100) < 1 and cv1 > cv2:
+                if 0.2 < cv1 < 1 and cv1 > cv2:
                     istrend = True
                 else:
                     istrend = False
@@ -182,20 +185,28 @@ class TrendModel:
             # ============================'''
             # 强制止损
             if self.forcestop and (self.allowcloseinday or self.obj_PM.get_curropendate() != date):  # 当日允许平仓（T+0）
-                if self.obj_PM.get_currdirect() == 1:
-                    if O <= stopprice:  # 开盘如果直接低于止损价，则直接平仓
+                # 根据模型实时净值的boll值，决定出场，如果前净值上破2倍标准差，则平仓
+                ma_nv = moveavg(self.obj_PM.list_netvalue, 30)
+                stdev_nv = movestd(self.obj_PM.list_netvalue, 30)
+                hbond = ma_nv[-1] + 2 * stdev_nv[-1]
+                if self.obj_PM.list_netvalue[-1] > hbond:
+                    if self.obj_PM.get_currdirect() != 0:
                         self.obj_PM.closeposition(O)
                         continue
-                    elif (L <= stopprice) and (H >= stopprice):  # 平仓
-                        self.obj_PM.closeposition(stopprice)
-                        continue
-                elif self.obj_PM.get_currdirect() == -1:
-                    if O >= stopprice:  # 开盘如果直接高于止损价，则直接平仓
-                        self.obj_PM.closeposition(O)
-                        continue
-                    if H >= stopprice:  # 平仓
-                        self.obj_PM.closeposition(stopprice)
-                        continue
+                # if self.obj_PM.get_currdirect() == 1:
+                #     if O <= stopprice:  # 开盘如果直接低于止损价，则直接平仓
+                #         self.obj_PM.closeposition(O)
+                #         continue
+                #     elif (L <= stopprice) and (H >= stopprice):  # 平仓
+                #         self.obj_PM.closeposition(stopprice)
+                #         continue
+                # elif self.obj_PM.get_currdirect() == -1:
+                #     if O >= stopprice:  # 开盘如果直接高于止损价，则直接平仓
+                #         self.obj_PM.closeposition(O)
+                #         continue
+                #     if H >= stopprice:  # 平仓
+                #         self.obj_PM.closeposition(stopprice)
+                #         continue
             ''' =======（进场）=========#
             # 指标进场
             # ============================'''
@@ -245,6 +256,8 @@ class TrendModel:
                                                       stopprice))  # 原止损价，低点算出的止损价格，二者最高
             # 计算浮亏数据
             self.obj_PM.cal_maxfloatingfp(H, L)
+            # 计算最新净值
+            self.obj_PM.cal_netvalue(C, C1)
         # end结束演算
         # 计算业绩
         self.obj_PM.calc_performance(dates)

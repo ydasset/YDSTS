@@ -17,6 +17,8 @@ class PositionMgr:
         self.__init_matchrecord()
         # 成交列表
         self.list_matchrecord = []
+        # 实时净值列表
+        self.list_netvalue = [1]
 
     """
     初始化仓位字典
@@ -102,6 +104,24 @@ class PositionMgr:
             self.curr_position['maxloss'] = min(self.curr_position['maxloss'], costprice-highprice)  # 计算空头最大浮盈
 
     """
+    计算实时净值
+    """
+    def cal_netvalue(self, closeprice, preclose):
+
+        direct = self.curr_position['direction']  # 取仓位方向
+        if direct == 0:
+            return
+        opentime = self.curr_position['opentime']
+        costprice = self.curr_position['costprice']  # 取成本价
+        if self.time == opentime:  # 如果是当前开仓
+            profit = ((closeprice - costprice)/costprice) * direct
+        else:
+            profit = ((closeprice - preclose)/preclose) * direct
+        n = len(self.list_netvalue)
+        prenv = self.list_netvalue[n-1]
+        netvalue = prenv * (1 + profit)
+        self.list_netvalue.append(netvalue)
+    """
     多开
     """
     def long(self, price):
@@ -149,7 +169,6 @@ class PositionMgr:
         self.__init_matchrecord()
         # 初始化仓位
         self.__init_Currentpos()
-
 
     """
     业绩计算

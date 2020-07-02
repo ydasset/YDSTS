@@ -1,5 +1,6 @@
 from sqlconn import *
 from publicfunction import *
+import pandas as pd
 
 """
 行情中心类——QuoteCenter
@@ -25,8 +26,6 @@ class QuoteCenter:
             self.pwd = "ydtz@2016"
             self.db = "YDHQ"
 
-        self.tickseries = []  # 行情序列
-
         # 时间段
         self.begindate = begindate
         self.enddate = enddate
@@ -45,7 +44,7 @@ class QuoteCenter:
                 "SELECT * FROM t_historyhq_day where stkcode='" + self.stkcode + "'order by date")
         else:  # csv访问模式
             srcpath = './hqdata/' + self.stkcode + '_1m.csv'
-            self.tickseries = load_from_csv(srcpath)
+            self.tickseries = pd.read_csv(srcpath, index_col=False)
 
     # 生成任意小时K线
     @staticmethod
@@ -67,22 +66,22 @@ class QuoteCenter:
         return result
 
     # 生成任意分钟K线,minutes最大60，最小1
-    @staticmethod
-    def createminutebar(seq, minutes):
+    def createminutebar(self, minutes):
         result = []
-        for i in range(len(seq)):
-            bar = seq[i].copy()
-            minute = bar['time'][3:5]
+        i = -1
+        for tick in self.tickseries.itertuples(index=False):
+            i += 1
+            minute = getattr(tick, 'time')[3:5]
             if (int(minute) % minutes == 0) or (i == 0):  # 如果被4整除或第一条时
-                tempdict = bar.copy()  # 初始赋值
-            tempdict['p_high'] = max(float(tempdict['p_high']), float(bar['p_high']))
-            tempdict['p_low'] = min(float(tempdict['p_low']), float(bar['p_low']))
+                tempdict = tick._asdict()
+            tempdict['p_high'] = max(float(tempdict['p_high']), float(getattr(tick, 'p_high')))
+            tempdict['p_low'] = min(float(tempdict['p_low']), float(getattr(tick, 'p_low')))
             # tempdict['volumn'] = float(tempdict['volumn']) + float(bar['volumn'])
-            if (int(minute) % minutes == minutes - 1) or (i == len(seq) - 1):  # 如果区间最后或是整体最后一条时
-                tempdict['p_close'] = float(bar['p_close'])
+            if (int(minute) % minutes == minutes - 1) or (i == len(tick) - 1):  # 如果区间最后或是整体最后一条时
+                tempdict['p_close'] = float(getattr(tick, 'p_close'))
                 # tempdict['volumn'] = float(tempdict['volumn']) + float(bar['volumn'])
                 result.append(tempdict)
-        return result
+        return pd.DataFrame(result)
 
     @staticmethod
     def create4hbar(seq):

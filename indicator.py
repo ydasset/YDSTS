@@ -7,6 +7,8 @@
 
 from statistics import *
 from publicfunction import *
+import numpy as np
+import pandas as pd
 
 """
 dualthrust指标，生成上下轨
@@ -117,25 +119,31 @@ def dualthrust_ma(seq):
     tempdict['range'] = marange
     result.append(tempdict)
   return result
+'''
+@函数名:MA
+@功能：计算时间序列的滚动MA值
+'''
+def MA(seq, field, n, doa=2):
+    seq['MA'+str(n)] = np.round(seq[field].rolling(window=n, min_periods=1).mean(), doa)
+    return seq
+# def MA(seq, n):
+#     result = []
+#     for i in range(len(seq)):
+#         tempdict = seq[i].copy()
+#         if i < n:  # 第一条记录
+#             j = 0
+#         else:
+#             j = i-n+1
+#         templist = []
+#         for k in range(j, i+1):
+#             val = seq[k]['p_close']
+#             templist.append(val)
+#         maval = np.round(average(templist), 2)
+#         tempdict['MA'+str(n)] = maval
+#         result.append(tempdict)
+#     return result
 
-def MA(seq,n):
-    result = []
-    for i in range(len(seq)):
-        tempdict = seq[i].copy()
-        if i < n:  # 第一条记录
-            j = 0
-        else:
-            j = i-n+1
-        templist = []
-        for k in range(j, i+1):
-            val = seq[k]['p_close']
-            templist.append(val)
-        maval = np.round(average(templist), 2)
-        tempdict['MA'+str(n)] = maval
-        result.append(tempdict)
-    return result
-
-def ATR(seq,n):
+def ATR(seq, n):
     result = []
     TRlist = []
     for i in range(len(seq)):
@@ -161,7 +169,7 @@ def ATR(seq,n):
 """
 移动平均振幅
 """
-def MAZF(seq,n):
+def MAZF(seq, n):
     result = []
     zflist = []
     for i in range(len(seq)):
@@ -206,7 +214,7 @@ def DONCHIAN(seq,n):
 """
 布林带指标
 """
-def BOLL(seq,n):
+def BOLL(seq, n):
     result = []
     closelist = []
     for i in range(len(seq)):
@@ -239,34 +247,44 @@ def BOLL(seq,n):
     n——指标的周期，n个bar，例如n=5，在1m级别，n就代表5分钟；
 返回：[]含计算结果列的行情序列
 """
-def WR(seq, n):
-    lst_high = []
-    lst_low = []
-    lst_wr = []
-    for i in range(len(seq)):
-        tempdict = seq[i].copy()
-        p_high = float(tempdict['p_high'])  # 最高价
-        p_low = float(tempdict['p_low'])
-        lst_high.append(p_high)  # 生成最高价列表
-        lst_low.append(p_low)   # 生成最低价列表
-
-    # 计算周期内最高最低价
-    lst_hhv = movemax(lst_high, n)  # n个bar最高价HHV
-    lst_llv = movemin(lst_low, n)  # n个bar最低价LLV
-
-    # 计算WR指标
-    for i in range(len(seq)):
-        hhv = lst_hhv[i]
-        llv = lst_llv[i]
-        p_close = seq[i]['p_close']
-        divhl = hhv - llv
-        if divhl == 0:
-            wrval == 0
-        else:
-            wrval = np.round(100 - (hhv-p_close)/divhl * 100, 2)
-        lst_wr.append(wrval)
-    result = mergedictlist_list(seq, lst_wr, 'WR')
-    return result
+# def WR(seq, n):
+#     lst_high = []
+#     lst_low = []
+#     lst_wr = []
+#     for i in range(len(seq)):
+#         tempdict = seq[i].copy()
+#         p_high = float(tempdict['p_high'])  # 最高价
+#         p_low = float(tempdict['p_low'])
+#         lst_high.append(p_high)  # 生成最高价列表
+#         lst_low.append(p_low)   # 生成最低价列表
+#
+#     # 计算周期内最高最低价
+#     lst_hhv = movemax(lst_high, n)  # n个bar最高价HHV
+#     lst_llv = movemin(lst_low, n)  # n个bar最低价LLV
+#
+#     # 计算WR指标
+#     for i in range(len(seq)):
+#         hhv = lst_hhv[i]
+#         llv = lst_llv[i]
+#         p_close = seq[i]['p_close']
+#         divhl = hhv - llv
+#         if divhl == 0:
+#             wrval == 0
+#         else:
+#             wrval = np.round(100 - (hhv-p_close)/divhl * 100, 2)
+#         lst_wr.append(wrval)
+#     result = mergedictlist_list(seq, lst_wr, 'WR')
+#     return result
+def WR(seq, n, doa=2):
+    seq['HHV'] = seq['p_high'].rolling(window=n, min_periods=1).max()  # n个bar最高价HHV
+    seq['LLV'] = seq['p_low'].rolling(window=n, min_periods=1).min()  # n个bar最低价LLV
+    # 求WR
+    seq = np.round(seq.eval('WR=100-((HHV-p_close)/(HHV-LLV) * 100)'), doa)
+    # 修改除0数据，默认为0
+    seq.loc[seq['HHV'] == seq['LLV'], 'WR'] = 0
+    # 删除中间计算列
+    seq.drop(columns=['HHV', 'LLV'], inplace=True)
+    return seq
 
 
 """
@@ -286,13 +304,11 @@ def STD(seq, n):
 """
 变异系数指标
 """
-def CV(seq, n):
-    result = []
-    closelist = []
-    for i in range(len(seq)):
-        tempdict = seq[i].copy()
-        p_close = float(tempdict['p_close'])
-        closelist.append(p_close)
-    cvlist = movecv(closelist, n)
-    result = mergedictlist_list(seq, cvlist, 'cv')
-    return result
+def CV(seq, field, n, doa=2):
+    seq['ma'] = seq[field].rolling(window=n, min_periods=1).mean()  # n个bar均值（临时列）
+    seq['std'] = seq[field].rolling(window=n, min_periods=1).std()  # n个bar标准差（临时列）
+    # 求CV
+    seq = seq.eval('CV=std/ma * 100')
+    # 删除中间计算列
+    seq.drop(columns=['ma', 'std'], inplace=True)
+    return seq
