@@ -24,6 +24,5 @@ if __name__ == '__main__':
     # feemod = {'fee_type': 0, 'fee_open': 1, "fee_closetoday": 1, 'fee_close': 1, 'multi': 10}  # RB
     # feemod = {'fee_type': 0, 'fee_open': 0.23, "fee_closetoday": 0.23, 'fee_close': 0.23, 'multi': 300}  # IF
     st = TrendModel('p888', feemod)
-    exit()
     st.exec()
     exit()
