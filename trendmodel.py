@@ -3,7 +3,7 @@ from position import *
 from quotecenter import *
 from statistics import *
 import pandas as pd
-
+from datetime import datetime
 """
 趋势跟踪策略模板（TrendModel)
 说明：
@@ -58,12 +58,14 @@ class TrendModel:
         """
         self.forcestop = False  # 是否强制止损
         self.movestop = False  # 是否移动止损（跟踪止损）
-        self.stoprate = 2  # 止损百分比，修改为0时，不止损
+        self.stoprate = 0.5  # 止损百分比，修改为0时，不止损
 
         # 创建行情中心类
         self.obj_QC = QuoteCenter(stkcode, ds, self.begindate, self.enddate)
-        # 创建仓位管理对象
+        # 创建实际仓位管理对象
         self.obj_PM = PositionMgr(self.feemod)
+        # 创建模型仓位管理对象
+        self.obj_PM_model = PositionMgr(self.feemod)
         self.tickseries = self.obj_QC.tickseries  # 从行情中心对象中复制行情序列
         self.matchrecord = []  # 成交记录
 
@@ -97,6 +99,7 @@ class TrendModel:
         istrend = True  # 市场趋势判断
         # 策略演算（循环主程序）
         for i in range(len(self.tickseries)):  # 循环读取
+            print('\r回测已完成：{:.2f}%'.format(i/len(self.tickseries)*100), end="")
             ahq = self.tickseries[i]
             H = float(ahq['p_high'])  # 最高价
             L = float(ahq['p_low'])  # 最低价
@@ -140,6 +143,7 @@ class TrendModel:
 
             # 同步交易时间
             self.obj_PM.sync_ticktime(date, time)
+            self.obj_PM_model.sync_ticktime(date, time)
             # 读取计划止损点
             stopprice = self.obj_PM.get_stopprice()
 
@@ -151,6 +155,8 @@ class TrendModel:
                         or (self.forceclose_btime2 <= time <= self.forceclose_etime2)):
                     if self.obj_PM.get_currdirect() != 0:  # 如果不是空仓
                         self.obj_PM.closeposition(O)  # 以开盘价平仓（注意前面是大写字母O，不是0）
+                    if self.obj_PM_model.get_currdirect() != 0:  # 如果不是空仓
+                        self.obj_PM_model.closeposition(O)  # 以开盘价平仓（注意前面是大写字母O，不是0）
                     continue
             ''' =======（方向过滤器）=========#
             # 大周期判断市场主方向
@@ -171,42 +177,55 @@ class TrendModel:
             # 指标出场
             # ============================'''
             # 多头平仓（条件和开空一样）
-            if self.obj_PM.get_currdirect() == 1 \
-                    and ma1short1 < ma1long1 \
-                    and wrval2 < self.overbought <= wrval1:
-                self.obj_PM.closeposition(O)
+            if ma1short1 < ma1long1 and wrval2 < self.overbought <= wrval1:
+                if self.obj_PM.get_currdirect() == 1:  # 实际出场
+                    self.obj_PM.closeposition(O)
+                if self.obj_PM_model.get_currdirect() == 1:  # 模型出场
+                    self.obj_PM_model.closeposition(O)
             # 空头平仓
-            elif self.obj_PM.get_currdirect() == -1 \
-                    and ma1short1 > ma1long1 \
-                    and wrval2 > self.oversold >= wrval1:
-                self.obj_PM.closeposition(O)
+            elif ma1short1 > ma1long1 and wrval2 > self.oversold >= wrval1:
+                if self.obj_PM.get_currdirect() == -1:  # 实际出场
+                    self.obj_PM.closeposition(O)
+                if self.obj_PM_model.get_currdirect() == -1:  # 模型出场
+                    self.obj_PM_model.closeposition(O)
+            # if self.obj_PM.get_currdirect() == 1 \
+            #         and ma1short1 < ma1long1 \
+            #         and wrval2 < self.overbought <= wrval1:
+            #     self.obj_PM.closeposition(O)
+            # # 空头平仓
+            # elif self.obj_PM.get_currdirect() == -1 \
+            #         and ma1short1 > ma1long1 \
+            #         and wrval2 > self.oversold >= wrval1:
+            #     self.obj_PM.closeposition(O)
             ''' =======（出场判断）=========#
             # 止损出场
             # ============================'''
             # 强制止损
             if self.forcestop and (self.allowcloseinday or self.obj_PM.get_curropendate() != date):  # 当日允许平仓（T+0）
+                seq_nv = self.obj_PM_model.list_netvalue
                 # 根据模型实时净值的boll值，决定出场，如果前净值上破2倍标准差，则平仓
-                ma_nv = moveavg(self.obj_PM.list_netvalue, 30)
-                stdev_nv = movestd(self.obj_PM.list_netvalue, 30)
-                hbond = ma_nv[-1] + 2 * stdev_nv[-1]
-                if self.obj_PM.list_netvalue[-1] > hbond:
-                    if self.obj_PM.get_currdirect() != 0:
-                        self.obj_PM.closeposition(O)
-                        continue
-                # if self.obj_PM.get_currdirect() == 1:
-                #     if O <= stopprice:  # 开盘如果直接低于止损价，则直接平仓
-                #         self.obj_PM.closeposition(O)
-                #         continue
-                #     elif (L <= stopprice) and (H >= stopprice):  # 平仓
-                #         self.obj_PM.closeposition(stopprice)
-                #         continue
-                # elif self.obj_PM.get_currdirect() == -1:
-                #     if O >= stopprice:  # 开盘如果直接高于止损价，则直接平仓
-                #         self.obj_PM.closeposition(O)
-                #         continue
-                #     if H >= stopprice:  # 平仓
-                #         self.obj_PM.closeposition(stopprice)
-                #         continue
+                if len(seq_nv) >= 30:
+                    ma_nv = np.mean(seq_nv[-30:])
+                    stdev_nv = np.std(seq_nv[-30:])
+                    hbond = ma_nv + 2 * stdev_nv
+                    if self.obj_PM_model.list_netvalue[-1] > hbond:  # 启动移动止盈
+                        if self.obj_PM.get_currdirect() != 0:
+                            self.obj_PM.closeposition(O)
+                            continue
+                        # if self.obj_PM.get_currdirect() == 1:
+                        #     if O <= stopprice:  # 开盘如果直接低于止损价，则直接平仓
+                        #         self.obj_PM.closeposition(O)
+                        #         continue
+                        #     elif L <= stopprice:  # 平仓
+                        #         self.obj_PM.closeposition(stopprice)
+                        #         continue
+                        # elif self.obj_PM.get_currdirect() == -1:
+                        #     if O >= stopprice:  # 开盘如果直接高于止损价，则直接平仓
+                        #         self.obj_PM.closeposition(O)
+                        #         continue
+                        #     if H >= stopprice:  # 平仓
+                        #         self.obj_PM.closeposition(stopprice)
+                        #         continue
             ''' =======（进场）=========#
             # 指标进场
             # ============================'''
@@ -217,27 +236,47 @@ class TrendModel:
             if not istrend:  # 处在低波动（震荡市）则返回
                 continue
             # 开多条件
-            # 多头开仓条件：
+            # 多头开仓条件：（实际仓位）模型也是空仓的时候才建仓
             # 1、MA大周期呈多头排列
             # 2、MA双线呈多头排列（短上长下)
             # 3、WR进入超卖区
-            if self.obj_PM.get_currdirect() == 0 \
-                    and ma1short1 > ma1long1 \
-                    and wrval2 > self.oversold >= wrval1:  # update
-                self.obj_PM.long(O)  # 开多(开盘价）
-                self.obj_PM.set_stopprice(O)
-                tradetimes = tradetimes + 1  # 开仓计数器+1
+            if ma1short1 > ma1long1 and wrval2 > self.oversold >= wrval1:
+                if self.obj_PM.get_currdirect() == 0 and self.obj_PM_model.get_currdirect() == 0:  # 实际开仓
+                    self.obj_PM.long(O)  # 开多(开盘价）
+                    self.obj_PM.set_stopprice(O)
+                    tradetimes = tradetimes + 1  # 开仓计数器+1
+                if self.obj_PM_model.get_currdirect() == 0:  # 模型开仓
+                    self.obj_PM_model.long(O)  # 开多(开盘价）
+                    self.obj_PM_model.set_stopprice(O)
+            # if self.obj_PM.get_currdirect() == 0 \
+            #         and self.obj_PM_model.get_currdirect() == 0 \
+            #         and ma1short1 > ma1long1 \
+            #         and wrval2 > self.oversold >= wrval1:
+            #     self.obj_PM.long(O)  # 开多(开盘价）
+            #     self.obj_PM.set_stopprice(O)
+            #     self.obj_PM_model.long(O)  # 开多(开盘价）
+            #     self.obj_PM_model.set_stopprice(O)
+            #     tradetimes = tradetimes + 1  # 开仓计数器+1
             # 开空条件
             # 空头开仓条件：
             # 1、MA大周期呈空头排列and marketdirect == -1 \
             # 2、MA双线呈空头排列（短下长上）
             # 3、WR进入超买区
-            elif self.obj_PM.get_currdirect() == 0 and self.allowshort \
-                    and ma1short1 < ma1long1 \
-                    and wrval2 < self.overbought <= wrval1:
-                self.obj_PM.short(O)  # 开空
-                self.obj_PM.set_stopprice(O)
-                tradetimes = tradetimes + 1
+            elif ma1short1 < ma1long1 and wrval2 < self.overbought <= wrval1:
+                if self.obj_PM.get_currdirect() == 0 and self.obj_PM_model.get_currdirect() == 0:  # 实际开仓
+                    self.obj_PM.short(O)  # 开空
+                    self.obj_PM.set_stopprice(O)
+                    tradetimes = tradetimes + 1
+                if self.obj_PM_model.get_currdirect() == 0:  # 模型开仓
+                    self.obj_PM_model.short(O)  # 开空
+                    self.obj_PM_model.set_stopprice(O)
+            # elif self.obj_PM.get_currdirect() == 0 \
+            #         and self.allowshort \
+            #         and ma1short1 < ma1long1 \
+            #         and wrval2 < self.overbought <= wrval1:
+            #     self.obj_PM.short(O)  # 开空
+            #     self.obj_PM.set_stopprice(O)
+            #     tradetimes = tradetimes + 1
 
             # 更新移动止损价格
             if self.forcestop:
@@ -256,8 +295,8 @@ class TrendModel:
                                                       stopprice))  # 原止损价，低点算出的止损价格，二者最高
             # 计算浮亏数据
             self.obj_PM.cal_maxfloatingfp(H, L)
-            # 计算最新净值
-            self.obj_PM.cal_netvalue(C, C1)
+            # 计算模型的最新净值曲线，用于计算实际出场止盈点
+            self.obj_PM_model.cal_netvalue(C, C1)
         # end结束演算
         # 计算业绩
         self.obj_PM.calc_performance(dates)

@@ -26,11 +26,6 @@ def DT(seq):
             lbond = 1
             rangeval = 0
         else:
-            # dates = int(seq[i]['date'][-2])
-            # if dates <= 10:
-            #     key_d = 0.4
-            # elif dates > 20:
-            #     key_k = 0.4
             lastclose = float(seq[i-1]['p_close'])
             lasthigh = float(seq[i-1]['p_high'])
             lastlow = float(seq[i-1]['p_low'])

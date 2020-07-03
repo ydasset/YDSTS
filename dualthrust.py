@@ -35,17 +35,8 @@ class DualThrust:
         # 创建仓位管理对象
         self.obj_PM = PositionMgr(self.feemod)
         self.tickseries = self.obj_QC.tickseries.copy()  # 从行情中心对象中复制行情序列
+        self.tickseries = pd.DataFrame.to_dict(self.tickseries, orient='records')
         self.matchrecord = []  # 成交记录
-    """
-    加载行情数据
-    """
-    def __load_hq_data(self):
-        if self.ds == 'db':  # 数据库连接方式
-            ms = MSSQL(self.host, self.user, self.pwd, self.db)
-            self.tickseries = ms.ExecQuery("SELECT * FROM t_historyhq_day where stkcode='" + self.stkcode + "'order by date")
-        else:  # csv访问模式
-            srcpath = './hqdata/'+self.stkcode+'_1m.csv'
-            self.tickseries = load_from_csv(srcpath)
 
     """
     策略回测执行
@@ -76,7 +67,7 @@ class DualThrust:
             date = ahq['date']  # 当前日期
             time = ahq['time']  # 当前bar的时间
             # 选择时间段
-            if date < self.begindate or date > self.enddate:
+            if date < int(self.begindate or date) > int(self.enddate):
                 continue
             # 前一个bar的信息
             if i != 0:
