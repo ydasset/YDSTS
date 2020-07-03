@@ -67,7 +67,7 @@ class DualThrust:
             date = ahq['date']  # 当前日期
             time = ahq['time']  # 当前bar的时间
             # 选择时间段
-            if date < int(self.begindate or date) > int(self.enddate):
+            if date < int(self.begindate) or date > int(self.enddate):
                 continue
             # 前一个bar的信息
             if i != 0:
