@@ -1,6 +1,7 @@
 from sqlconn import *
 from publicfunction import *
 import pandas as pd
+from datetime import datetime
 
 """
 行情中心类——QuoteCenter
@@ -16,7 +17,8 @@ class QuoteCenter:
     2、交易品种
     """
 
-    def __init__(self, stkcode, ds='csv', begindate="", enddate=""):
+    def __init__(self, stkcode, stktype='stk', ds='csv', begindate="", enddate=""):
+        self.stktype = stktype  # 证券类型，'stk','opt'
         self.stkcode = stkcode
         self.ds = ds
         #  数据库参数
@@ -43,8 +45,62 @@ class QuoteCenter:
             self.tickseries = ms.ExecQuery(
                 "SELECT * FROM t_historyhq_day where stkcode='" + self.stkcode + "'order by date")
         else:  # csv访问模式
-            srcpath = './hqdata/' + self.stkcode + '_1m.csv'
-            self.tickseries = pd.read_csv(srcpath, index_col=False)
+            srcpath = './hqdata/' + self.stkcode + '.csv'
+            if self.stktype == 'stk':
+                srcpath = './hqdata/' + self.stkcode + '_1m.csv'
+            elif self.stktype == 'opt':
+                srcpath = './hqdata/optiondata/'+'SH'+self.stkcode[0:8]+'.csv'
+            df = pd.read_csv(srcpath, index_col=False)
+            # 标准化数据
+            df['date'] = pd.to_datetime(df['date'])
+            df['time'] = df['date'].apply(lambda x: x.strftime('%H:%M:%S'))
+            df['date'] = df['date'].apply(lambda x: x.strftime('%Y%m%d'))
+            df.rename(columns={'open': 'p_open'}, inplace=True)
+            df.rename(columns={'high': 'p_high'}, inplace=True)
+            df.rename(columns={'low': 'p_low'}, inplace=True)
+            df.rename(columns={'close': 'p_close'}, inplace=True)
+            df.rename(columns={'volume': 'volumn'}, inplace=True)
+            df.rename(columns={'turnover': 'oi'}, inplace=True)
+            # 删除无用数据
+            df.drop(columns=['code'], inplace=True)
+            df.drop(columns=['tradecode'], inplace=True)
+            df.drop(columns=['strike'], inplace=True)
+            df.drop(columns=['openinterest'], inplace=True)
+            df.drop(columns=['contractunit'], inplace=True)
+            df.drop(columns=['expirydate'], inplace=True)
+            df.drop(columns=['spotcode'], inplace=True)
+            df.drop(columns=['spotclose'], inplace=True)
+            # 调整列顺序
+            df_time = df.time
+            df.drop(columns=['time'], inplace=True)
+            df.insert(1, 'time', df_time)
+            # 删除集合竞价数据
+            for i, row in df.iterrows():
+                atime = row['time']
+                if atime < '09:30:00' or atime > '15:00:00':
+                    df.drop(index=i, inplace=True)
+            df.reset_index(inplace=True)  # 重新设置索引，否则补全数据会出错
+            # 补全数据
+            for i, row in df.iterrows():
+                lastid = max(i - 1, 0)  # 前索引
+                nextid = min(i + 1, len(df) - 1)  # 后索引
+                # 当前日期时间
+                atime = row['time']
+                adate = row['date']
+                adt = datetime.strptime(adate+' '+atime, '%Y%m%d %H:%M:%S')
+                # 上一个日期时间
+                lasttime = df.iloc[lastid]['time']
+                lastdate = df.iloc[lastid]['date']
+                lastdt = datetime.strptime(lastdate+' '+lasttime, '%Y%m%d %H:%M:%S')
+                # 下一个日期时间
+                nexttime = df.iloc[nextid]['time']
+                nextdate = df.iloc[nextid]['date']
+                nextdt = datetime.strptime(nextdate + ' ' + nexttime, '%Y%m%d %H:%M:%S')
+                interval = (adt - lastdt).total_seconds()
+                # 第一种情况，每天第一条记录不等于9:30分,沿用之后的
+                if adate != lastdate and atime != '09:30:00':
+                    print(atime)
+            self.tickseries = df
 
     # 生成任意小时K线
     @staticmethod

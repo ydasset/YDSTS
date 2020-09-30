@@ -217,7 +217,6 @@ def BOLL(seq, n):
         p_close = float(tempdict['p_close'])
         closelist.append(p_close)
         result.append(tempdict)
-
     midlist = moveavg(closelist, n)
     stdlist = movestd(closelist, n)
 
@@ -299,11 +298,23 @@ def STD(seq, n):
 """
 变异系数指标
 """
-def CV(seq, field, n, doa=2):
+def CV(seq, field, n):
     seq['ma'] = seq[field].rolling(window=n, min_periods=1).mean()  # n个bar均值（临时列）
     seq['std'] = seq[field].rolling(window=n, min_periods=1).std()  # n个bar标准差（临时列）
     # 求CV
     seq = seq.eval('CV=std/ma * 100')
     # 删除中间计算列
     seq.drop(columns=['ma', 'std'], inplace=True)
+    return seq
+
+"""
+振幅指标
+"""
+def ZF(seq, n):
+    seq['HHV'] = seq['p_high'].rolling(window=n, min_periods=1).max()  # n个bar均值（临时列）
+    seq['LLV'] = seq['p_low'].rolling(window=n, min_periods=1).min()  # n个bar标准差（临时列）
+    # 求ZF
+    seq = seq.eval('ZF'+str(n)+'=abs(HHV-LLV)/LLV')
+    # 删除中间计算列
+    seq.drop(columns=['HHV', 'LLV'], inplace=True)
     return seq

@@ -5,7 +5,7 @@ from statistics import *
 import pandas as pd
 from datetime import datetime
 """
-趋势跟踪策略模板（TrendModel)
+期权日内趋势跟踪策略模板（OptTrendModel)
 说明：
     所有策略都包括以下几个部分：
     1、方向信号器（判断多空）
@@ -14,14 +14,14 @@ from datetime import datetime
     4、止盈止损策略
     5、仓位管理策略
 """
-class TrendModel:
+class OptTrendModel:
     """
     初始化参数
     1、ds:数据源（默认为空，即数据库，如果为文件路径，则为文件数据）
     2、交易品种
     """
 
-    def __init__(self, stkcode, feemod=None, ds='csv'):
+    def __init__(self, stkcode, feemod=None, begindate='', enddate='', ds='csv'):
         self.feemod = feemod  # 手续费模板
         """
         指标运行参数
@@ -38,20 +38,18 @@ class TrendModel:
         """
         交易参数
         """
-        self.begindate = "20100101"
-        self.enddate = "20201231"
+        # self.begindate = "20100101"
+        # self.enddate = "20201231"
+        self.begindate = begindate
+        self.enddate = enddate
         self.allowfilter = False  # 震荡过滤器开关
         self.allowshort = False  # 允许做空
         self.isdaytrade = True  # 日内交易
         self.allowcloseinday = True  # 允许日内平仓
-        self.open_btime1 = "09:00:00"  # 日间允许开仓时间段1
+        self.open_btime1 = "09:30:00"  # 日间允许开仓时间段1
         self.open_etime1 = "14:55:00"
-        self.open_btime2 = "21:00:00"  # 日间允许开仓时间段2
-        self.open_etime2 = "22:55:00"
         self.forceclose_btime1 = '14:55:00'  # 强制平仓时间段1
-        self.forceclose_etime1 = '15:30:00'
-        self.forceclose_btime2 = '22:55:00'  # 强制平仓时间段2
-        self.forceclose_etime2 = '23:30:00'
+        self.forceclose_etime1 = '15:00:00'
         self.maxtimesinday = 10000  # 每日最大开仓次数
         """
         风险控制参数
@@ -61,7 +59,7 @@ class TrendModel:
         self.stoprate = 0.5  # 止损百分比，修改为0时，不止损
 
         # 创建行情中心类
-        self.obj_QC = QuoteCenter(stkcode, ds, self.begindate, self.enddate)
+        self.obj_QC = QuoteCenter(stkcode, 'opt', ds, self.begindate, self.enddate)
         # 创建实际仓位管理对象
         self.obj_PM = PositionMgr(self.feemod)
         # 创建模型仓位管理对象
@@ -91,6 +89,9 @@ class TrendModel:
         hqlist_pro = WR(hqlist_pro, self.wrlen)  # 威廉WR指标
         hqlist_pro = CV(hqlist_pro, 'p_close', self.cvlen)  # 变异系数指标
         hqlist_pro = ZF(hqlist_pro, self.cvlen)
+
+        print(self.tickseries)
+        exit()
 
         # 转换数据格式为list
         self.tickseries = pd.DataFrame.to_dict(self.tickseries, orient='records')
@@ -152,8 +153,7 @@ class TrendModel:
                 tradetimes = 0  # 交易计数器清0
             # 收盘强制平仓（仅限日内交易）
             if self.isdaytrade and self.allowcloseinday:
-                if ((self.forceclose_btime1 <= time <= self.forceclose_etime1)
-                        or (self.forceclose_btime2 <= time <= self.forceclose_etime2)):
+                if self.forceclose_btime1 <= time <= self.forceclose_etime1:
                     if self.obj_PM.get_currdirect() != 0:  # 如果不是空仓
                         self.obj_PM.closeposition(O)  # 以开盘价平仓（注意前面是大写字母O，不是0）
                     if self.obj_PM_model.get_currdirect() != 0:  # 如果不是空仓
@@ -231,7 +231,7 @@ class TrendModel:
             # 指标进场
             # ============================'''
             if self.isdaytrade \
-                    and ((time < self.open_btime1 or self.open_etime1 <= time < self.open_btime2 or time >= self.open_etime2)
+                    and ((time < self.open_btime1 or time >= self.open_etime1)
                          or (tradetimes >= self.maxtimesinday)):
                 continue
             if not istrend:  # 处在低波动（震荡市）则返回
